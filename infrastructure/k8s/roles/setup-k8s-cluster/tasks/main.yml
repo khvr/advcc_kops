@@ -1,0 +1,5 @@
+- name: Create Cluster Tasks
+  import_tasks: create-cluster.yml
+
+- name: Validate Cluster
+  import_tasks: validate-cluster.yml

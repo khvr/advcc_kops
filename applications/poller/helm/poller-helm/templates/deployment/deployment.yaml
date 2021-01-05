@@ -1,0 +1,107 @@
+---
+{{ if .Values.pollerDockerImage }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{template "deploymentName" .}}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: {{ template "labelName" .}}
+  annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+spec:
+  replicas: {{ .Values.pollerDeployment.replicationSet.replicas }}
+  progressDeadlineSeconds: {{ .Values.pollerDeployment.replicationSet.progressDeadlineSeconds }}
+  minReadySeconds: {{ .Values.pollerDeployment.replicationSet.minReadySeconds }}
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.pollerDeployment.replicationSet.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.pollerDeployment.replicationSet.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels:
+      app: {{ template "labelName" .}}
+  template:
+    metadata:
+      labels:
+        app: {{ template "labelName" .}}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "3001"
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name}}
+      containers:
+        - name: {{ template "labelName" .}}
+          image: {{ .Values.pollerDockerImage }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3001
+          env:
+          - name: DB_HOST_POLLER
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: DB_HOST_POLLER
+          - name: DB_NAME_POLLER
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: DB_NAME_POLLER
+          - name: DB_PASS
+            valueFrom:
+                secretKeyRef:
+                  name: {{ template "dbsecretName" .}} 
+                  key: DB_PASS
+          - name: DB_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "dbsecretName" .}} 
+                key: DB_USERNAME
+          - name: BROKER1
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: BROKER1
+          - name: BROKER2
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: BROKER2
+          - name: BROKER3
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: BROKER3
+          - name: WEATHER_POLL_TIME
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: WEATHER_POLL_TIME
+          - name: OW_API_KEY
+            valueFrom:
+                secretKeyRef:
+                  name: {{ template "owsecretName" .}} 
+                  key: OW_API_KEY
+          readinessProbe:
+            httpGet:
+              path: /test
+              port: 3001
+            initialDelaySeconds: {{ .Values.pollerDeployment.pod.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.pollerDeployment.pod.readinessProbe.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3001
+            initialDelaySeconds: {{ .Values.pollerDeployment.pod.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.pollerDeployment.pod.livenessProbe.initialDelaySeconds }}
+          resources:
+            requests:
+              memory: "100Mi"
+              cpu: "500m"
+            limits:
+              memory: "256Mi"
+              cpu: "1000m"
+      imagePullSecrets:
+        - name: {{ template "dockerregistrykeyName" .}}
+{{ end }}

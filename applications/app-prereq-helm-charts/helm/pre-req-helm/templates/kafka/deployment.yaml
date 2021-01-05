@@ -1,0 +1,208 @@
+---
+{{ if .Values.kafkaImage }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.KAFKA_SERVER_1 }}-{{template "deploymentName" .}}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    app: {{ .Values.KAFKA_SERVER_1 }}-{{ template "labelName" .}}
+  annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+spec:
+  replicas: {{ .Values.kafkaDeployment.replicationSet.replicas }}
+  progressDeadlineSeconds: {{ .Values.kafkaDeployment.replicationSet.progressDeadlineSeconds }}
+  minReadySeconds: {{ .Values.kafkaDeployment.replicationSet.minReadySeconds }}
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.kafkaDeployment.replicationSet.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.kafkaDeployment.replicationSet.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels:
+      component: {{ .Values.KAFKA_SERVER_1 }}-{{ template "labelName" .}}
+  template:
+    metadata:
+      labels:
+        component: {{ .Values.KAFKA_SERVER_1 }}-{{ template "labelName" .}}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+        - name: {{ .Values.KAFKA_SERVER_1 }}-{{ template "labelName" .}}
+          image: {{ .Values.kafkaImage }}
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 9092
+          env:
+          - name: MY_POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: KAFKA_ADVERTISED_PORT
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "kafkaConfigMapName" . }}
+                key: KAFKA_ADVERTISED_PORT
+          - name: KAFKA_ZOOKEEPER_CONNECT
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "kafkaConfigMapName" . }}
+                key: KAFKA_ZOOKEEPER_CONNECT
+          - name: KAFKA_ADVERTISED_HOST_NAME
+            value: $(MY_POD_IP)
+          - name: KAFKA_BROKER_ID
+            value: {{ .Values.KAFKA1_ID | quote}}
+          - name: KAFKA_CREATE_TOPICS
+            value: "watch:2:3,weather:2:3"
+          - name: EXTRA_ARGS
+            value: "-javaagent:/root/prometheus/jmx_prometheus_javaagent-0.13.0.jar=8080:/root/prometheus/kafka-0-8-2.yml"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      imagePullSecrets:
+        - name: {{ template "dockerregistrykeyName" .}}
+{{ end }}
+
+---
+{{ if .Values.kafkaImage }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.KAFKA_SERVER_2 }}-{{template "deploymentName" .}}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    app: {{ .Values.KAFKA_SERVER_2 }}-{{ template "labelName" .}}
+  annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+spec:
+  replicas: {{ .Values.kafkaDeployment.replicationSet.replicas }}
+  progressDeadlineSeconds: {{ .Values.kafkaDeployment.replicationSet.progressDeadlineSeconds }}
+  minReadySeconds: {{ .Values.kafkaDeployment.replicationSet.minReadySeconds }}
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.kafkaDeployment.replicationSet.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.kafkaDeployment.replicationSet.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels:
+      component: {{ .Values.KAFKA_SERVER_2 }}-{{ template "labelName" .}}
+  template:
+    metadata:
+      labels:
+        component: {{ .Values.KAFKA_SERVER_2 }}-{{ template "labelName" .}}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+        - name: {{ .Values.KAFKA_SERVER_2 }}-{{ template "labelName" .}}
+          image: {{ .Values.kafkaImage }}
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 9092
+          env:
+          - name: MY_POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: KAFKA_ADVERTISED_PORT
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "kafkaConfigMapName" . }}
+                key: KAFKA_ADVERTISED_PORT
+          - name: KAFKA_ZOOKEEPER_CONNECT
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "kafkaConfigMapName" . }}
+                key: KAFKA_ZOOKEEPER_CONNECT
+          - name: KAFKA_ADVERTISED_HOST_NAME
+            value: $(MY_POD_IP)
+          - name: KAFKA_BROKER_ID
+            value: {{ .Values.KAFKA2_ID | quote}}
+          - name: EXTRA_ARGS
+            value: "-javaagent:/root/prometheus/jmx_prometheus_javaagent-0.13.0.jar=8080:/root/prometheus/kafka-0-8-2.yml"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      imagePullSecrets:
+        - name: {{ template "dockerregistrykeyName" .}}
+{{ end }}
+
+---
+{{ if .Values.kafkaImage }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.KAFKA_SERVER_3 }}-{{template "deploymentName" .}}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    app: {{ .Values.KAFKA_SERVER_3 }}-{{ template "labelName" .}}
+  annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+spec:
+  replicas: {{ .Values.kafkaDeployment.replicationSet.replicas }}
+  progressDeadlineSeconds: {{ .Values.kafkaDeployment.replicationSet.progressDeadlineSeconds }}
+  minReadySeconds: {{ .Values.kafkaDeployment.replicationSet.minReadySeconds }}
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.kafkaDeployment.replicationSet.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.kafkaDeployment.replicationSet.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels:
+      component: {{ .Values.KAFKA_SERVER_3 }}-{{ template "labelName" .}}
+  template:
+    metadata:
+      labels:
+        component: {{ .Values.KAFKA_SERVER_3 }}-{{ template "labelName" .}}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+    spec:
+      containers:
+        - name: {{ .Values.KAFKA_SERVER_3 }}-{{ template "labelName" .}}
+          image: {{ .Values.kafkaImage }}
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 9092
+          env:
+          - name: MY_POD_IP
+            valueFrom:
+              fieldRef:
+                fieldPath: status.podIP
+          - name: KAFKA_ADVERTISED_PORT
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "kafkaConfigMapName" . }}
+                key: KAFKA_ADVERTISED_PORT
+          - name: KAFKA_ZOOKEEPER_CONNECT
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "kafkaConfigMapName" . }}
+                key: KAFKA_ZOOKEEPER_CONNECT
+          - name: KAFKA_ADVERTISED_HOST_NAME
+            value: $(MY_POD_IP)
+          - name: KAFKA_BROKER_ID
+            value: {{ .Values.KAFKA3_ID | quote}}
+          - name: EXTRA_ARGS
+            value: "-javaagent:/root/prometheus/jmx_prometheus_javaagent-0.13.0.jar=8080:/root/prometheus/kafka-0-8-2.yml"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+      imagePullSecrets:
+        - name: {{ template "dockerregistrykeyName" .}}
+{{ end }}

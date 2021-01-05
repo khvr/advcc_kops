@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ .Values.fluentd.name }}
+  namespace: {{ .Values.namespace.logging.name }}
+  labels:
+    app: {{ .Values.fluentd.name }}
+spec:
+  selector:
+    matchLabels:
+      app: {{ .Values.fluentd.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.fluentd.name }}
+    spec:
+      serviceAccount: {{ .Values.fluentd.name }}
+      serviceAccountName: {{ .Values.fluentd.name }}
+      tolerations:
+      - key: {{ .Values.fluentd.DaemonSet.replicationSet.spec.tolerations.key }}
+        effect: {{ .Values.fluentd.DaemonSet.replicationSet.spec.tolerations.effect }}
+      containers:
+      - name: {{ .Values.fluentd.name }}
+        image: {{ .Values.fluentd.DaemonSet.replicationSet.spec.containers.image }}
+        env:
+          - name:  FLUENT_ELASTICSEARCH_HOST
+            value: {{ .Values.fluentd.DaemonSet.replicationSet.spec.containers.env.FLUENT_ELASTICSEARCH_HOST | quote }}
+          - name:  FLUENT_ELASTICSEARCH_PORT
+            value: {{ .Values.fluentd.DaemonSet.replicationSet.spec.containers.env.FLUENT_ELASTICSEARCH_PORT | quote }}
+          - name: FLUENT_ELASTICSEARCH_SCHEME
+            value: {{ .Values.fluentd.DaemonSet.replicationSet.spec.containers.env.FLUENT_ELASTICSEARCH_SCHEME | quote }}
+          - name: FLUENTD_SYSTEMD_CONF
+            value: {{ .Values.fluentd.DaemonSet.replicationSet.spec.containers.env.FLUENTD_SYSTEMD_CONF }}
+        resources:
+          limits:
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 200Mi
+        volumeMounts:
+        - name: {{ .Values.fluentd.DaemonSet.replicationSet.spec.containers.volumeMounts.name1 }}
+          mountPath: {{ .Values.fluentd.DaemonSet.replicationSet.spec.containers.volumeMounts.mountPath1 }}
+        - name: {{ .Values.fluentd.DaemonSet.replicationSet.spec.containers.volumeMounts.name2 }}
+          mountPath: {{ .Values.fluentd.DaemonSet.replicationSet.spec.containers.volumeMounts.mountPath2 }}
+          readOnly: {{ .Values.fluentd.DaemonSet.replicationSet.spec.containers.volumeMounts.readOnly }}
+      terminationGracePeriodSeconds: {{ .Values.fluentd.DaemonSet.replicationSet.spec.terminationGracePeriodSeconds }}
+      volumes:
+      - name: {{ .Values.fluentd.DaemonSet.replicationSet.spec.volumes.name1 }}
+        hostPath:
+          path: {{ .Values.fluentd.DaemonSet.replicationSet.spec.volumes.hostPath1.path }}
+      - name: {{ .Values.fluentd.DaemonSet.replicationSet.spec.volumes.name2 }}
+        hostPath:
+          path: {{ .Values.fluentd.DaemonSet.replicationSet.spec.volumes.hostPath2.path }}

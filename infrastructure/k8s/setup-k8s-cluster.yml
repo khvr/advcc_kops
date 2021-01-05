@@ -1,0 +1,21 @@
+---
+- name: Run on Local
+  hosts: localhost
+  connection: local
+  environment:
+    - AWS_REGION: "{{ region }}"
+    - NAME: "{{ cluster_name }}"
+    - KOPS_STATE_STORE: s3://{{cluster_name}}
+    - AWS_PROFILE: "{{profile}}"
+  become: false
+  gather_facts: false
+  vars_files:
+    - vars/main.yml
+
+  roles:
+    - role: setup-k8s-cluster
+    - role: rds_setup
+    - role: vpc_peering_setup
+    - role: metrics-server
+    - role: cluster-autoscaler
+    - role: setup-prereq-cluster

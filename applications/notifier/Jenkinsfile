@@ -1,0 +1,56 @@
+node{
+	def commit_id
+  def kubernetesCredentials = 'kubernetes_credentials'
+  def DOCKERHUB_CREDENTIALS = 'dockerhub_credentials'
+  def notifierReleaseName = "notifier"
+  def notifier_DB_Credentials = "notifier_db_credentials"
+
+
+	stage('Git Clone') {
+		checkout scm
+	}
+
+  stage('Build docker image') {
+  commit_id = sh(returnStdout: true, script: 'git rev-parse HEAD')
+  commit_id = sh(returnStdout: true, script: """echo $commit_id . """).trim()
+  dockerImage = docker.build ("${env.BACKEND_IMAGE_NOTIFIER}")
+  }
+		
+    
+  stage('Push image') {
+          docker.withRegistry( '', DOCKERHUB_CREDENTIALS ) {
+          dockerImage.push("$commit_id")
+          dockerImage.push("latest")
+      }
+  }
+
+  stage('Startup activities'){
+  echo "${env.KUBERNETES_API}"
+  withKubeConfig([credentialsId: kubernetesCredentials,
+                      serverUrl: "${env.KUBERNETES_API}"
+                      ]) {
+        sh "kubectl cluster-info"
+  }
+
+  }
+
+  stage('Continous Deployment Helm Upgrade'){
+  
+  withKubeConfig([credentialsId: kubernetesCredentials,
+                      serverUrl: "${env.KUBERNETES_API}"
+                      ]) {
+        sh "helm version"
+        sh "pwd"
+        sh "ls -a"
+    withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: notifier_DB_Credentials,
+    usernameVariable: 'DBUSERNAME', passwordVariable: 'DBPASSWORD']]) {
+      withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: DOCKERHUB_CREDENTIALS,
+    usernameVariable: 'DOCKERUSERNAME', passwordVariable: 'DOCKERPASSWORD']]) {
+        sh("helm upgrade notifier ./helm/notifier-helm/ --set DB_USERNAME=$DBUSERNAME,DB_PASS=$DBPASSWORD,DB_HOST_NOTIFIER=${DB_HOST_NOTIFIER},imageCredentials.Docker_username=$DOCKERUSERNAME,imageCredentials.Docker_password=$DOCKERPASSWORD,notifierDockerImage=${BACKEND_IMAGE_NOTIFIER}:$commit_id")  
+    }
+    }
+  }
+  }
+
+
+}

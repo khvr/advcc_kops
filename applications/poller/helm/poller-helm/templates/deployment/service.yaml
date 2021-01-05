@@ -1,0 +1,19 @@
+---
+{{ if .Values.pollerDockerImage }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "serviceName" .}}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    name: {{ template "labelName" .}}
+spec:
+  type: {{ .Values.pollerService.type }}
+  selector:
+    app: {{ template "labelName" .}}
+  ports:
+    - protocol: TCP
+      name: http
+      port: 80
+      targetPort: 3001
+{{ end }}

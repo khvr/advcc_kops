@@ -1,0 +1,42 @@
+---
+# tasks file for install-ngnix
+- name: Add Ngnix Repo
+  shell: "helm repo add stable https://kubernetes-charts.storage.googleapis.com/"
+  ignore_errors: yes
+
+- name: Install Nginx
+  shell: "helm install ingress stable/nginx-ingress --set controller.kind=DaemonSet"
+
+- name: Add Cert Manager Repo
+  shell: "helm repo add jetstack https://charts.jetstack.io"
+
+- name: Applying changes
+  shell: "kubectl apply --validate=false -f https://github.com/jetstack/cert-manager/releases/download/v0.14.1/cert-manager.crds.yaml"
+
+- name: Creating Namespace cert Manager
+  shell: "kubectl create namespace cert-manager"
+
+- name: Install Cert Manager
+  shell: "helm install cert-manager --version v0.14.1 --namespace cert-manager jetstack/cert-manager"
+
+- name: Pause 1 minute for the cert-manager helm chart to install
+  pause:
+    minutes: 1
+    
+- name: Apply changes for Cert Manager
+  shell: "kubectl apply -f roles/setup-prereq-cluster/tasks/production_issuer.yaml"
+
+- name: Getting ALB of the ingress Nginx
+  shell: "kubectl get svc ingress-nginx-ingress-controller --output jsonpath='{.status.loadBalancer.ingress[0].hostname}'"
+  register: Nginx_alb_hostname
+
+- name: Add A record for the nginx-ingress ALB in Route53.
+  route53:
+    state: present
+    zone: "{{ webapp_domain }}"
+    record: "webapp.{{ webapp_domain }}"
+    type: CNAME
+    ttl: 60
+    value: "{{ Nginx_alb_hostname.stdout }}"
+    wait: true
+    overwrite: true

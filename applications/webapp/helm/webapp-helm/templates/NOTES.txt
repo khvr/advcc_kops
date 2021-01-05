@@ -1,0 +1,24 @@
+NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+  You can watch the status of by running 'kubectl get --namespace {{ .Release.Namespace }} svc -w {{ template "serviceName" . }}'
+  export SERVICE_IP=$(kubectl get svc --namespace {{ .Release.Namespace }} {{ template "serviceName" . }} --template "{{"{{ range (index .status.loadBalancer.ingress 0) }}{{.}}{{ end }}"}}")
+  echo http://$SERVICE_IP:3000
+
+
+---
+{{ if .Values.webappDockerImage }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ template "serviceName" .}}
+  labels:
+    name: {{ template "labelName" .}}
+spec:
+  type: {{ .Values.webappService.type }}
+  selector:
+    app: {{ template "labelName" .}}
+  ports:
+    - protocol: TCP
+      name: http
+      port: 80
+      targetPort: 3000
+{{ end }}

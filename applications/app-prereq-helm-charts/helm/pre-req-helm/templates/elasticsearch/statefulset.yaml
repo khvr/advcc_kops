@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Values.esReplicaset.name }}
+  namespace: {{ .Values.namespace.logging.name }}
+spec:
+  serviceName: {{ .Values.elasticsearch.name }}
+  replicas: {{ .Values.esReplicaset.spec.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.elasticsearch.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.elasticsearch.name }}
+    spec:
+      containers:
+      - name: {{ .Values.elasticsearch.name }}
+        image: {{ .Values.esReplicaset.pod.spec.image }}
+        resources:
+            limits:
+              cpu: 1000m
+            requests:
+              cpu: 100m
+        ports:
+        - containerPort: 9200
+          name: rest
+          protocol: TCP
+        - containerPort: 9300
+          name: inter-node
+          protocol: TCP
+        volumeMounts:
+        - name: {{ .Values.esReplicaset.pod.spec.volumeMounts.name }}
+          mountPath: {{ .Values.esReplicaset.pod.spec.volumeMounts.mountPath }}
+        env:
+          - name: cluster.name
+            value: {{ .Values.esReplicaset.pod.spec.env.cluster_name }}
+          - name: node.name
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: discovery.seed_hosts
+            value: {{ .Values.esReplicaset.pod.spec.env.discovery_seed_hosts | quote }}
+          - name: cluster.initial_master_nodes
+            value: {{ .Values.esReplicaset.pod.spec.env.cluster_initial_master_nodes | quote }}
+          - name: ES_JAVA_OPTS
+            value: {{ .Values.esReplicaset.pod.spec.env.ES_JAVA_OPTS | quote }}
+      initContainers:
+      - name: fix-permissions
+        image: busybox
+        command: ["sh", "-c", "chown -R 1000:1000 /usr/share/elasticsearch/data"]
+        securityContext:
+          privileged: {{ .Values.esReplicaset.pod.initContainers.securityContext.previleged }}
+        volumeMounts:
+        - name: {{ .Values.esReplicaset.pod.spec.volumeMounts.name }}
+          mountPath: {{ .Values.esReplicaset.pod.spec.volumeMounts.mountPath }}
+      - name: increase-vm-max-map
+        image: busybox
+        command: ["sysctl", "-w", "vm.max_map_count=262144"]
+        securityContext:
+          privileged: {{ .Values.esReplicaset.pod.initContainers.securityContext.previleged }}
+      - name: increase-fd-ulimit
+        image: busybox
+        command: ["sh", "-c", "ulimit -n 65536"]
+        securityContext:
+          privileged: {{ .Values.esReplicaset.pod.initContainers.securityContext.previleged }}
+  volumeClaimTemplates:
+  - metadata:
+      name: {{ .Values.esReplicaset.volumeClaimTemplates.name }}
+      labels:
+        app: {{ .Values.elasticsearch.name }}
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: {{ .Values.esReplicaset.volumeClaimTemplates.spec.storageClassName }}
+      resources:
+        requests:
+          storage: {{ .Values.esReplicaset.volumeClaimTemplates.spec.resources.storage }}

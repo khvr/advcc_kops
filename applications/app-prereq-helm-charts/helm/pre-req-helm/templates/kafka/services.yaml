@@ -1,0 +1,56 @@
+---
+{{ if .Values.kafkaImage }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.KAFKA_SERVER_1 }}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    name: {{ .Values.KAFKA_SERVER_1 }}-{{ template "labelName" .}}
+spec:
+  type: {{ .Values.zkService.type }}
+  selector:
+    component: {{ .Values.KAFKA_SERVER_1 }}-{{ template "labelName" .}}
+  ports:
+  - name: kafka
+    port: 9092
+    targetPort: 9092
+{{ end }}
+
+---
+{{ if .Values.kafkaImage }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.KAFKA_SERVER_2 }}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    name: {{ .Values.KAFKA_SERVER_2 }}-{{ template "labelName" .}}
+spec:
+  type: {{ .Values.zkService.type }}
+  selector:
+    component: {{ .Values.KAFKA_SERVER_2 }}-{{ template "labelName" .}}
+  ports:
+  - name: kafka
+    port: 9092
+    targetPort: 9092
+{{ end }}
+
+---
+{{ if .Values.kafkaImage }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.KAFKA_SERVER_3 }}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    name: {{ .Values.KAFKA_SERVER_3 }}-{{ template "labelName" .}}
+spec:
+  type: {{ .Values.zkService.type }}
+  selector:
+    component: {{ .Values.KAFKA_SERVER_3 }}-{{ template "labelName" .}}
+  ports:
+  - name: kafka
+    port: 9092
+    targetPort: 9092
+{{ end }}

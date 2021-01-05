@@ -1,0 +1,34 @@
+---
+vpc_cidr_block: 10.1.0.0/16
+
+vpc_tags:
+    name: rds-vpc
+
+#subnet
+vpc_subnets:
+  private-1:
+    cidr: 10.1.0.0/18
+    az: "{{ region }}a"
+    name: "subnet-{{ region }}-a"
+  private-2:
+    cidr: 10.1.64.0/18
+    az: "{{ region }}b"
+    name: "subnet-{{ region }}-b"
+  private-3:
+    cidr: 10.1.128.0/18
+    az: "{{ region }}c"
+    name: "subnet-{{ region }}-c"
+
+vpc_subnet_group_names:
+    rds: csye7125-db-subnet_group
+
+rds_instances:
+  rds-1:
+    name: csye7125-webapp-db
+    dbName: csye7125webapp
+  rds-2:
+    name: csye7125-poller-db
+    dbName: csye7125poller
+  rds-3:
+    name: csye7125-notifier-db
+    dbName: csye7125notifier

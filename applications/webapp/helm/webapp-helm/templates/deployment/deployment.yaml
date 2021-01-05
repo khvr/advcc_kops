@@ -1,0 +1,98 @@
+---
+{{ if .Values.webappDockerImage }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{template "deploymentName" .}}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: {{ template "labelName" .}}
+  annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+spec:
+  replicas: {{ .Values.webappDeployment.replicationSet.replicas }}
+  progressDeadlineSeconds: {{ .Values.webappDeployment.replicationSet.progressDeadlineSeconds }}
+  minReadySeconds: {{ .Values.webappDeployment.replicationSet.minReadySeconds }}
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.webappDeployment.replicationSet.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.webappDeployment.replicationSet.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels:
+      app: {{ template "labelName" .}}
+  template:
+    metadata:
+      labels:
+        app: {{ template "labelName" .}}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "3000"
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name}}
+      # automountServiceAccountToken: false
+      containers:
+        - name: {{ template "labelName" .}}
+          image: {{ .Values.webappDockerImage }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+          env:
+          - name: DB_HOST_WEBAPP
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: DB_HOST_WEBAPP
+          - name: DB_NAME_WEBAPP
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: DB_NAME_WEBAPP
+          - name: DB_PASS
+            valueFrom:
+                secretKeyRef:
+                  name: {{ template "dbsecretName" .}} 
+                  key: DB_PASS
+          - name: DB_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "dbsecretName" .}} 
+                key: DB_USERNAME
+          - name: BROKER1
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: BROKER1
+          - name: BROKER2
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: BROKER2
+          - name: BROKER3
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: BROKER3
+          readinessProbe:
+            httpGet:
+              path: /test
+              port: 3000
+            initialDelaySeconds: {{ .Values.webappDeployment.pod.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.webappDeployment.pod.readinessProbe.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3000
+            initialDelaySeconds: {{ .Values.webappDeployment.pod.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.webappDeployment.pod.livenessProbe.initialDelaySeconds }}
+          resources:
+            requests:
+              memory: "100Mi"
+              cpu: "500m"
+            limits:
+              memory: "256Mi"
+              cpu: "1000m"
+      imagePullSecrets:
+        - name: {{ template "dockerregistrykeyName" .}}
+{{ end }}

@@ -1,0 +1,12 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "configMapName" . }}
+  namespace: {{ .Values.namespace.name }}
+data:
+  DB_HOST_WEBAPP: {{ .Values.DB_HOST_WEBAPP | quote }}
+  DB_NAME_WEBAPP: {{ .Values.DB_NAME_WEBAPP | quote }}
+  BROKER1: {{ .Values.KAFKA_BROKER_A_svc | quote }}
+  BROKER2: {{ .Values.KAFKA_BROKER_B_svc | quote }}
+  BROKER3: {{ .Values.KAFKA_BROKER_C_svc | quote }}

@@ -1,0 +1,105 @@
+- name: Initiate Create Kubernetes Cluster
+  shell: echo "Creating Cluster   {{ cluster_name }} "
+
+- name: set kops state store
+  set_fact:
+    kops_state_store: s3://{{cluster_name}}
+
+- name: get clusters
+  command: kops get clusters
+  ignore_errors: yes
+  register: clusters
+
+- name: aws availability zones
+  aws_az_info:
+    profile: "{{ profile }}"
+    region: "{{ region }}"
+  register: az_regions
+
+- name: Set Prod facts
+  set_fact:
+    compute_node_size: "{{node_size | default('t2.micro')}}"
+    master_node_size: "{{master_size | default('t2.micro')}}"
+    master_node_count: "{{master_node_count | default(3)}}"
+    node_counts: "{{node_count | default(3)}}"
+
+- name: set master count values
+  set_fact:
+    master_count: 3
+  # when: "{{ az_regions.availability_zones|length>=3 }}"
+
+- name: set node count values
+  set_fact:
+    node_counts: "{{node_counts | default(3)}}"
+  when: "{{ az_regions.availability_zones|length>=3 }}"
+
+- name: Set Fact HA zone
+  set_fact:
+    nodes_availability_zones: "{{ az_regions.availability_zones[0].zone_name }},{{ az_regions.availability_zones[1].zone_name }},{{ az_regions.availability_zones[2].zone_name }}"
+    masters_availability_zones: "{{ az_regions.availability_zones[0].zone_name }},{{ az_regions.availability_zones[1].zone_name }},{{ az_regions.availability_zones[2].zone_name}}"
+  when: "{{ az_regions.availability_zones|length>=3 }}"
+
+- name: Set Fact
+  set_fact:
+    nodes_availability_zones: "{{ az_regions.availability_zones[0].zone_name }},{{ az_regions.availability_zones[1].zone_name }},{{ az_regions.availability_zones[2].zone_name }}"
+    masters_availability_zones: "{{ az_regions.availability_zones[0].zone_name }}"
+  when: "{{ az_regions.availability_zones|length<3 }}"
+
+- name: Set up kubernetes_version
+  set_fact:
+    kubernetes_version: 1.16.0
+  when: kubernetes_version is not defined
+
+- name: Setup topology
+  set_fact:
+    topology: private
+  when: topology is not defined
+
+- name: Setup networking
+  set_fact:
+    networking: calico
+  when: networking is not defined
+
+- name: Creating Cluster Configuration
+  shell: |
+    AWS_PROFILE={{ profile }} kops create cluster \
+    --cloud={{ cloud }} --zones={{ nodes_availability_zones }} \  
+    --master-count={{ master_node_count }} \
+    --master-zones={{ masters_availability_zones }} \
+    --dns-zone={{ dns_zone_id }} \ 
+    --node-count={{ node_counts }} \
+    --master-size={{ master_node_size }} \
+    --node-size={{ compute_node_size }} \
+    --topology={{ topology }} \
+    --name={{ cluster_name }} \
+    --networking={{ networking }} \
+    --bastion=true \
+    --ssh-public-key={{ ssh_path }} \
+    --state={{ kops_state_store }} \
+    --kubernetes-version={{ kubernetes_version }}
+  when: clusters.stdout.find( '{{cluster_name}}' ) == -1
+
+
+- name: set kubelet authenticationTokenWebhook and authorizationMode
+  shell: |
+    export KOPS_FEATURE_FLAGS=SpecOverrideFlag
+    kops set cluster {{ cluster_name }} spec.kubelet.authenticationTokenWebhook=true
+    kops set cluster {{ cluster_name }} spec.kubelet.authorizationMode=Webhook
+
+- name: Get the current cluster configuration
+  shell: "kops get --name {{ cluster_name }} -o yaml > ./cluster.yml"
+
+- name: edit the cluster spec
+  shell: "yq m -i -x -d0 cluster.yml ./files/cluster_spec.yaml"
+
+- name: edit the nodes instance group spec
+  shell: "yq m -i -x -d5 cluster.yml ./files/ig_spec.yaml"
+
+- name: replace <YOUR CLUSTER NAME> in config
+  shell: "sed 's/<YOUR CLUSTER NAME>/{{ cluster_name }}/g' ./cluster.yml"
+
+- name: replace the cluster config
+  command: "kops replace -f cluster.yml"
+
+- name: deploy the cluster
+  command: "kops update cluster {{ cluster_name }}  --yes"

@@ -1,0 +1,12 @@
+---
+# tasks file for cluster-autoscaler
+- name: Assign a policy to a role
+  iam_policy:
+    iam_type: role
+    iam_name: "nodes.{{ cluster_name }}"
+    policy_name: aws-cluster-autoscaler
+    state: present
+    policy_document: roles/cluster-autoscaler/templates/policy.json
+
+- name: Install cluster-autoscaler
+  shell: "helm install {{ clusterAutoscaler_releaseName }} roles/cluster-autoscaler/tasks/cluster-autoscaler --set 'autoscalingGroups[0].name=nodes.{{ cluster_name }},autoscalingGroups[0].maxSize=6,autoscalingGroups[0].minSize=3,rbac.create=true'"

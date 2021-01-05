@@ -1,0 +1,53 @@
+node{
+	def commit_id
+  def kubernetesCredentials = 'kubernetes_credentials'
+  def prereqReleaseName = "prereq"
+  def DOCKERHUB_CREDENTIALS = 'dockerhub_credentials'
+
+
+	stage('Git Clone') {
+		checkout scm
+	}
+
+  stage('Build docker image') {
+  commit_id = sh(returnStdout: true, script: 'git rev-parse HEAD')
+  commit_id = sh(returnStdout: true, script: """echo $commit_id . """).trim()
+  dockerImage = docker.build ("${KAFKA_IMAGE}")
+  }
+
+
+  stage('Push image') {
+        docker.withRegistry( '', DOCKERHUB_CREDENTIALS ) {
+        dockerImage.push("$commit_id")
+        dockerImage.push("latest")
+    }
+  }
+
+  stage('Startup activities'){
+  echo "${env.KUBERNETES_API}"
+  withKubeConfig([credentialsId: kubernetesCredentials,
+                      serverUrl: "${env.KUBERNETES_API}"
+                      ]) {
+        sh "kubectl cluster-info"
+  }
+
+  }
+
+  stage('Continous Deployment Helm Upgrade'){
+  
+  withKubeConfig([credentialsId: kubernetesCredentials,
+                      serverUrl: "${env.KUBERNETES_API}"
+                      ]) {
+        sh "helm version"
+        sh "pwd"
+        sh "ls -a"
+         withCredentials([[$class: 'UsernamePasswordMultiBinding', credentialsId: DOCKERHUB_CREDENTIALS,
+    usernameVariable: 'DOCKERUSERNAME', passwordVariable: 'DOCKERPASSWORD']]) {
+        sh("helm upgrade ${prereqReleaseName} ./helm/pre-req-helm/ --set imageCredentials.Docker_username=$DOCKERUSERNAME,imageCredentials.Docker_password=$DOCKERPASSWORD,kafkaImage=${KAFKA_IMAGE}:latest")
+    }
+
+  }
+  }
+
+
+}

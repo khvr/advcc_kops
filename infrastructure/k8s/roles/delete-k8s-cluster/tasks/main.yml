@@ -1,0 +1,2 @@
+- name: Delete Cluster
+  import_tasks: delete-cluster.yml

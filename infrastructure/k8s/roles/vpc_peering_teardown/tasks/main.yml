@@ -1,0 +1,86 @@
+---
+# Fetching k8s Information
+- name: fetching aws k8s vpc info
+  ec2_vpc_net_info:
+    filters:
+      tag:Name: "{{k8s_requestor_vpc_name}}"
+  register: k8s_requestor_vpc_info
+- debug:
+    var: k8s_requestor_vpc_info.vpcs[0].id
+  when: k8s_requestor_vpc_info.vpcs|length > 0
+
+- name: fetching aws k8s route table info
+  ec2_vpc_route_table_info:
+    filters:
+      vpc-id: "{{k8s_requestor_vpc_info.vpcs[0].id}}"
+      tag:Name: "{{k8s_requestor_vpc_name}}"
+  when: k8s_requestor_vpc_info.vpcs|length > 0
+  register: k8s_requestor_route_table_info
+- debug:
+    var: k8s_requestor_route_table_info.route_tables[0].id
+  when: k8s_requestor_vpc_info.vpcs|length > 0
+
+- name: fetching aws rds vpc info
+  ec2_vpc_net_info:
+    filters:
+      tag:Name: "{{rds_acceptor_vpc_name}}"
+  register: rds_acceptor_vpc_info
+- debug:
+    var: rds_acceptor_vpc_info.vpcs[0].id
+  when: rds_acceptor_vpc_info.vpcs|length > 0
+
+- name: fetching aws rds route table info
+  ec2_vpc_route_table_info:
+    filters:
+      vpc-id: "{{rds_acceptor_vpc_info.vpcs[0].id}}"
+      tag:Name: "{{rds_acceptor_vpc_name}}-public-route-table"
+  when: rds_acceptor_vpc_info.vpcs|length > 0
+  register: rds_acceptor_route_table_info
+- debug:
+    var: item.id
+  with_items: "{{rds_acceptor_route_table_info.route_tables}}"
+  when: rds_acceptor_vpc_info.vpcs|length > 0
+
+- name: fetching aws k8s-rds vpc peering info
+  ec2_vpc_peering_info:
+    filters:
+      tag:Name: k8s_rds_vpc_peering
+      status-code: 'active'
+  register: vpc_peer_info
+- debug:
+    msg: "{{vpc_peer_info.result[0].vpc_peering_connection_id}}"
+  when: vpc_peer_info.result|length > 0
+
+- debug:
+    var: rds_acceptor_vpc_info.vpcs[0].id
+- debug:
+    var: rds_acceptor_route_table_info.route_tables[0].id
+
+
+- name: removing all routes from acceptor(rds) vpc
+  ec2_vpc_route_table:
+    vpc_id: "{{rds_acceptor_vpc_info.vpcs[0].id}}"
+    route_table_id: "{{ rds_acceptor_route_table_info.route_tables[0].id }}"
+    lookup: id
+    state: present
+  register: acceptor_route_table_info
+- debug:
+    var: "{{acceptor_route_table_info}}"
+
+- name: removing all routes from requestor(k8s) vpc
+  ec2_vpc_route_table:
+    vpc_id: "{{k8s_requestor_vpc_info.vpcs[0].id}}"
+    route_table_id: "{{k8s_requestor_route_table_info.route_tables[0].id}}"
+    lookup: id
+    state: present
+  register: requestor_route_table_info
+- debug:
+    var: "{{requestor_route_table_info}}"
+
+- name: delete vpc peering
+  ec2_vpc_peer:
+    peering_id: "{{vpc_peer_info.result[0].vpc_peering_connection_id}}"
+    state: absent
+  register: vpc_peer_delete
+- debug:
+    var: "{{vpc_peer_delete}}"

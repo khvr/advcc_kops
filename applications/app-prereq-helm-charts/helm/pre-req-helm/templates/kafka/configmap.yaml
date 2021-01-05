@@ -1,0 +1,9 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "kafkaConfigMapName" . }}
+  namespace: {{ .Values.namespace.kafka.name }}
+data:
+  KAFKA_ADVERTISED_PORT: {{ .Values.KAFKA_ADVERTISED_PORT | quote}}
+  KAFKA_ZOOKEEPER_CONNECT: {{ .Values.KAFKA_ZOOKEEPER_CONNECT | quote }}

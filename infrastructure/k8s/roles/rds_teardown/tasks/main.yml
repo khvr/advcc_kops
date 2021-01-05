@@ -1,0 +1,133 @@
+---
+  # --------------------------- Fetching Resorces Information ---------------------------
+  - name: fetching RDS aws vpc info
+    ec2_vpc_net_info:
+      filters:
+        cidr: "{{vpc_cidr_block}}"
+        tag:Name: "{{vpc_tags.name}}"
+    register: vpc_info
+  - debug:
+      var: vpc_info.vpcs[0].id
+    when: vpc_info.vpcs|length > 0
+  
+  - name: fetching aws subnets info
+    ec2_vpc_subnet_info:
+      filters:
+        vpc-id: "{{vpc_info.vpcs[0].id}}"
+    when: vpc_info.vpcs|length > 0
+    register: subnets_info
+  - debug:
+      var: item.subnet_id
+    with_items: "{{subnets_info.subnets}}"
+    when: vpc_info.vpcs|length > 0
+  
+  - name: fetching aws route table info
+    ec2_vpc_route_table_info:
+      filters:
+        vpc-id: "{{vpc_info.vpcs[0].id}}"
+        tag:Name: "{{vpc_tags.name}}-public-route-table"
+    when: vpc_info.vpcs|length > 0
+    register: route_table_info
+  - debug:
+      var: item.id
+    with_items: "{{route_table_info.route_tables}}"
+    when: vpc_info.vpcs|length > 0
+  
+  - name: fetching aws security group info
+    ec2_group_info:
+      filters:
+        vpc-id: "{{vpc_info.vpcs[0].id}}"
+        group-name: "{{vpc_tags.name}}-sg"
+    when: vpc_info.vpcs|length > 0
+    register: sg_info
+  - debug:
+      var: sg_info.security_groups[0].group_id
+    when: vpc_info.vpcs|length > 0
+
+  # --------------------------- Deleting Resources ---------------------------
+  - name: deleting rds instance
+    rds:
+      command: delete
+      instance_name: "{{item.value.name }}"
+      wait: yes
+    with_dict: "{{ rds_instances }}"
+    register: rds_delete
+    async: 300
+    poll: 0
+
+  - debug:
+      var: rds_delete
+
+  - name: Check sync status
+    async_status:
+      jid:  "{{ item.ansible_job_id }}"
+    # loop: ""
+    # loop_control:
+    #   loop_var: "async_result_item"
+    register: async_poll_results
+    until: async_poll_results.finished
+    retries: 300
+    with_items: "{{ rds_delete.results }}"
+
+  - name: deleting aws vpc security group for rds server
+    ec2_group:
+      group_id: "{{sg_info.security_groups[0].group_id}}"
+      state: absent
+    when: vpc_info.vpcs|length > 0 and sg_info.security_groups|length > 0
+    register: sg_delete
+  - debug:
+      var: sg_delete
+  
+  - name: deleting vpc subnet group
+    rds_subnet_group:
+      state: absent
+      name: "{{vpc_subnet_group_names.rds}}"
+    register: subnet_group_delete
+  - debug:
+      var: subnet_group_delete
+
+  - name: deleting aws vpc route table
+    ec2_vpc_route_table:
+      route_table_id: "{{item.id}}"
+      state: absent
+      lookup: id
+    with_items: "{{ route_table_info.route_tables }}"
+    when: vpc_info.vpcs|length > 0
+    register: route_table_delete
+  - debug:
+      var: route_table_delete
+  
+  - name: deleting aws vpc subnets
+    ec2_vpc_subnet:
+      vpc_id: "{{vpc_info.vpcs[0].id}}"
+      cidr: "{{item}}"
+      state: absent
+    with_items:
+      - "{{subnet_cidr_blocks.a}}"
+      - "{{subnet_cidr_blocks.b}}"
+      - "{{subnet_cidr_blocks.c}}"
+    when: vpc_info.vpcs|length > 0
+    register: subnets_delete
+  - debug:
+      var: subnets_delete
+  
+  - name: deleting aws vpc igw
+    ec2_vpc_igw:
+      vpc_id: "{{vpc_info.vpcs[0].id}}"
+      state: absent
+    when: vpc_info.vpcs|length > 0
+    register: igw_delete
+  - debug:
+      var: igw_delete
+  
+  - name: deleting aws vpc
+    ec2_vpc_net:
+      name: "{{vpc_tags.name}}"
+      cidr_block: "{{vpc_cidr_block}}"
+      state: absent
+      tags:
+        Name: "{{vpc_tags.name}}"
+    when: vpc_info.vpcs|length > 0
+    register: vpc_delete
+  - debug:
+      var: vpc_delete

@@ -1,0 +1,102 @@
+---
+{{ if .Values.notifierDockerImage }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{template "deploymentName" .}}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    app: {{ template "labelName" .}}
+  annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+spec:
+  replicas: {{ .Values.notifierDeployment.replicationSet.replicas }}
+  progressDeadlineSeconds: {{ .Values.notifierDeployment.replicationSet.progressDeadlineSeconds }}
+  minReadySeconds: {{ .Values.notifierDeployment.replicationSet.minReadySeconds }}
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.notifierDeployment.replicationSet.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.notifierDeployment.replicationSet.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels:
+      app: {{ template "labelName" .}}
+  template:
+    metadata:
+      labels:
+        app: {{ template "labelName" .}}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/path: /metrics
+        prometheus.io/port: "3002"
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name}}
+      containers:
+        - name: {{ template "labelName" .}}
+          image: {{ .Values.notifierDockerImage }}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3002
+          env:
+          - name: DB_HOST_NOTIFIER
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: DB_HOST_NOTIFIER
+          - name: DB_NAME_NOTIFIER
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: DB_NAME_NOTIFIER
+          - name: DB_PASS
+            valueFrom:
+                secretKeyRef:
+                  name: {{ template "dbsecretName" .}} 
+                  key: DB_PASS
+          - name: DB_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: {{ template "dbsecretName" .}} 
+                key: DB_USERNAME
+          - name: BROKER1
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: BROKER1
+          - name: BROKER2
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: BROKER2
+          - name: BROKER3
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: BROKER3
+          - name: NOTIFICATION_LIMIT
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "configMapName" . }}
+                key: NOTIFICATION_LIMIT
+          readinessProbe:
+            httpGet:
+              path: /test
+              port: 3002
+            initialDelaySeconds: {{ .Values.notifierDeployment.pod.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.notifierDeployment.pod.readinessProbe.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 3002
+            initialDelaySeconds: {{ .Values.notifierDeployment.pod.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.notifierDeployment.pod.livenessProbe.initialDelaySeconds }}
+          resources:
+            requests:
+              memory: "100Mi"
+              cpu: "500m"
+            limits:
+              memory: "256Mi"
+              cpu: "1000m"
+      imagePullSecrets:
+        - name: {{ template "dockerregistrykeyName" .}}
+{{ end }}

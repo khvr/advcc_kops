@@ -1,0 +1,9 @@
+- name: Validate the cluster
+  shell: AWS_PROFILE={{ profile }} kops validate cluster --name {{ cluster_name }} --state {{ kops_state_store }}
+  retries: 20
+  delay: 60
+  register: result
+  until: result.rc == 0
+
+- name: Get the ELB address created for bastion node
+  shell: "bastion_elb_url=`aws elb --output=table describe-load-balancers|grep DNSName.\\*bastion|awk '{print $4}'`&& echo ${bastion_elb_url}"

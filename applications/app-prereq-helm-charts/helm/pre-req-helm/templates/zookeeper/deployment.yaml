@@ -1,0 +1,210 @@
+---
+{{ if .Values.zookeeperImage }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zoo1-{{template "deploymentName" .}}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    app: zoo1-{{ template "labelName" .}}
+  annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+spec:
+  replicas: {{ .Values.zkDeployment.replicationSet.replicas }}
+  progressDeadlineSeconds: {{ .Values.zkDeployment.replicationSet.progressDeadlineSeconds }}
+  minReadySeconds: {{ .Values.zkDeployment.replicationSet.minReadySeconds }}
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.zkDeployment.replicationSet.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.zkDeployment.replicationSet.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels:
+      app: zoo1-{{ template "labelName" .}} 
+  template:
+    metadata:
+      labels:
+        app: zoo1-{{ template "labelName" .}}
+    spec:
+      containers:
+        - name: zoo1-{{ template "labelName" .}}
+          image: {{ .Values.zookeeperImage }}
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 2181
+          - containerPort: 2888
+          - containerPort: 3888
+          env:
+          - name: ZOOKEEPER_ID
+            value: {{ .Values.ZOOKEEPER1_ID | quote}}
+          - name: ZOOKEEPER_SERVER_1
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "zookeeperConfigMapName" . }}
+                key: ZOOKEEPER_SERVER_1
+          - name: ZOOKEEPER_SERVER_2
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "zookeeperConfigMapName" . }}
+                key: ZOOKEEPER_SERVER_2
+          - name: ZOOKEEPER_SERVER_3
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "zookeeperConfigMapName" . }}
+                key: ZOOKEEPER_SERVER_3
+          livenessProbe:
+              exec:
+                command:    ['/bin/bash', '-c', 'echo "ruok" | nc -w 2 localhost 2181 | grep imok']
+              initialDelaySeconds: 15
+              timeoutSeconds: 5
+          readinessProbe:
+              exec:
+                command: ['/bin/bash', '-c', 'echo "ruok" | nc -w 2 localhost 2181 | grep imok']
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "125m"
+            limits:
+              memory: "128Mi"
+              cpu: "250m"
+{{ end }}
+---
+{{ if .Values.zookeeperImage }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zoo2-{{template "deploymentName" .}}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    app: zoo2-{{ template "labelName" .}}
+  annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+spec:
+  replicas: {{ .Values.zkDeployment.replicationSet.replicas }}
+  progressDeadlineSeconds: {{ .Values.zkDeployment.replicationSet.progressDeadlineSeconds }}
+  minReadySeconds: {{ .Values.zkDeployment.replicationSet.minReadySeconds }}
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.zkDeployment.replicationSet.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.zkDeployment.replicationSet.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels:
+      app: zoo2-{{ template "labelName" .}}
+  template:
+    metadata:
+      labels:
+        app: zoo2-{{ template "labelName" .}}
+    spec:
+      containers:
+        - name: zoo2-{{ template "labelName" .}}
+          image: {{ .Values.zookeeperImage }}
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 2181
+          - containerPort: 2888
+          - containerPort: 3888
+          env:
+          - name: ZOOKEEPER_ID
+            value: {{ .Values.ZOOKEEPER2_ID | quote}}
+          - name: ZOOKEEPER_SERVER_1
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "zookeeperConfigMapName" . }}
+                key: ZOOKEEPER_SERVER_1
+          - name: ZOOKEEPER_SERVER_2
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "zookeeperConfigMapName" . }}
+                key: ZOOKEEPER_SERVER_2
+          - name: ZOOKEEPER_SERVER_3
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "zookeeperConfigMapName" . }}
+                key: ZOOKEEPER_SERVER_3
+          livenessProbe:
+              exec:
+                command:    ['/bin/bash', '-c', 'echo "ruok" | nc -w 2 localhost 2181 | grep imok']
+              initialDelaySeconds: 15
+              timeoutSeconds: 5
+          readinessProbe:
+              exec:
+                command: ['/bin/bash', '-c', 'echo "ruok" | nc -w 2 localhost 2181 | grep imok']
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "125m"
+            limits:
+              memory: "128Mi"
+              cpu: "250m"
+{{ end }}
+---
+{{ if .Values.zookeeperImage }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zoo3-{{template "deploymentName" .}}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    app: zoo3-{{ template "labelName" .}}
+  annotations:
+        rollme: {{ randAlphaNum 5 | quote }}
+spec:
+  replicas: {{ .Values.zkDeployment.replicationSet.replicas }}
+  progressDeadlineSeconds: {{ .Values.zkDeployment.replicationSet.progressDeadlineSeconds }}
+  minReadySeconds: {{ .Values.zkDeployment.replicationSet.minReadySeconds }}
+  strategy: 
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .Values.zkDeployment.replicationSet.rollingUpdate.maxSurge }}
+      maxUnavailable: {{ .Values.zkDeployment.replicationSet.rollingUpdate.maxUnavailable }}
+  selector:
+    matchLabels:
+      app: zoo3-{{ template "labelName" .}}
+  template:
+    metadata:
+      labels:
+        app: zoo3-{{ template "labelName" .}}
+    spec:
+      containers:
+        - name: zoo3-{{ template "labelName" .}}
+          image: {{ .Values.zookeeperImage }}
+          imagePullPolicy: Always
+          ports:
+          - containerPort: 2181
+          - containerPort: 2888
+          - containerPort: 3888
+          env:
+          - name: ZOOKEEPER_ID
+            value: {{ .Values.ZOOKEEPER3_ID | quote}}
+          - name: ZOOKEEPER_SERVER_1
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "zookeeperConfigMapName" . }}
+                key: ZOOKEEPER_SERVER_1
+          - name: ZOOKEEPER_SERVER_2
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "zookeeperConfigMapName" . }}
+                key: ZOOKEEPER_SERVER_2
+          - name: ZOOKEEPER_SERVER_3
+            valueFrom:
+              configMapKeyRef:
+                name: {{ template "zookeeperConfigMapName" . }}
+                key: ZOOKEEPER_SERVER_3
+          livenessProbe:
+              exec:
+                command:    ['/bin/bash', '-c', 'echo "ruok" | nc -w 2 localhost 2181 | grep imok']
+              initialDelaySeconds: 15
+              timeoutSeconds: 5
+          readinessProbe:
+              exec:
+                command: ['/bin/bash', '-c', 'echo "ruok" | nc -w 2 localhost 2181 | grep imok']
+          resources:
+            requests:
+              memory: "64Mi"
+              cpu: "125m"
+            limits:
+              memory: "128Mi"
+              cpu: "250m"
+{{ end }}

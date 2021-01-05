@@ -1,0 +1,16 @@
+---
+aws_region: us-east-1
+aws_profile: "{{ profile }}"
+vpc_cidr_block: 10.0.0.0/16
+
+# VPC Information
+vpc_name: "jenkins-{{ aws_region }}-vpc"
+
+#subnet
+vpc_subnets:
+  private-1:
+    cidr: 10.0.1.0/24
+  private-2:
+    cidr: 10.0.2.0/24
+  private-3:
+    cidr: 10.0.3.0/24    

@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Values.kibana.name }}
+  namespace: {{ .Values.namespace.logging.name }}
+  labels:
+    app: {{ .Values.kibana.name }}
+spec:
+  replicas: {{ .Values.kibana.replicationSet.spec.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Values.kibana.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Values.kibana.name }}
+    spec:
+      containers:
+      - name: {{ .Values.kibana.name }}
+        image: {{ .Values.kibana.replicationSet.pod.spec.containers.image }}
+        resources:
+          limits:
+            cpu: 1000m
+          requests:
+            cpu: 100m
+        env:
+          - name: ELASTICSEARCH_URL
+            value: {{ .Values.kibana.replicationSet.pod.spec.containers.env.ELASTICSEARCH_URL }}
+        ports:
+        - containerPort: 5601

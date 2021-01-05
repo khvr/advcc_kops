@@ -1,0 +1,3 @@
+---
+  k8s_requestor_vpc_name: "{{ clustername | default('none') }}"
+  rds_acceptor_vpc_name: rds-vpc

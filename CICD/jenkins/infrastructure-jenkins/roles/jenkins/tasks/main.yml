@@ -1,0 +1,168 @@
+---
+- name: Update apt package manager repositories cache
+  apt:
+    update_cache: true
+  become: true
+
+- name: install openjdk
+  apt:
+    name: openjdk-8-jdk
+    state: latest
+    update_cache: true
+  become: true
+
+- name: Ensure the jenkins apt repository key is added
+  apt_key:
+   url: https://pkg.jenkins.io/debian-stable/jenkins.io.key
+   state: present
+  become: true
+
+- name: Ensure the repository is configured
+  apt_repository:
+   repo: deb https://pkg.jenkins.io/debian-stable binary/
+   state: present
+  become: true
+
+- name: Install Jenkins
+  apt:
+    name: jenkins
+  become: true
+
+- name: Ensure jenkins is running
+  service:
+   name: jenkins
+   state: started
+  become: true
+
+- name : Add cerbot repository
+  apt_repository:
+   repo: ppa:certbot/certbot
+   state: present
+  become: true
+
+- name: Install nginx
+  apt:
+    name: nginx
+    state: latest
+  become: true
+
+- name: Install python-certbot-nginx
+  apt:
+    name: python-certbot-nginx
+    state: latest
+  become: true
+
+- name: Remove default file (delete file)
+  file:
+    path:  /etc/nginx/sites-available/default
+    state: absent
+  become: true
+
+- name: set up nginx custom configuration block
+  blockinfile:
+    path:  /etc/nginx/sites-available/default
+    create: yes
+    block: |
+      upstream jenkins {
+        server 127.0.0.1:8080 fail_timeout=0;
+      }
+
+      server {
+              listen 80 default_server;
+              listen [::]:80 default_server;
+
+              root /var/www/html;
+              index index.html index.htm index.nginx-debian.html;
+
+              server_name {{ domain_name }};
+
+              location / {
+                      proxy_set_header        Host $host:$server_port;
+                      proxy_set_header        X-Real-IP $remote_addr;
+                      proxy_set_header        X-Forwarded-For $proxy_add_x_forwarded_for;
+                      proxy_set_header        X-Forwarded-Proto $scheme;
+                      proxy_set_header        Upgrade $http_upgrade;
+                      proxy_set_header        Connection "upgrade";
+                      proxy_pass              http://jenkins;
+              }
+      }
+  become: true
+
+- name: Set up nginx files
+  command: sudo nginx -t
+
+- name: Restart nginx
+  service:
+    name: nginx
+    state: restarted
+  become: true
+
+- name: Create letsencrypt certificate --staging
+  command: "sudo certbot --nginx -m {{ letsencrypt_email }} -d {{ domain_name }} --agree-tos --reinstall --redirect --staging"
+  when: staging_cert|bool == true
+
+- name: Create letsencrypt certificate
+  command: "sudo certbot --nginx -m {{ letsencrypt_email }} -d {{ domain_name }} --agree-tos --reinstall --redirect"
+  when: staging_cert|bool == false
+
+- name: Install aptitude using apt
+  apt: name=aptitude state=latest update_cache=yes force_apt_get=yes
+
+- name: Install required system packages
+  apt: name={{ item }} state=latest update_cache=yes
+  loop:
+    [
+      "apt-transport-https",
+      "ca-certificates",
+      "curl",
+      "software-properties-common",
+      "python3-pip",
+      "virtualenv",
+      "python3-setuptools",
+    ]
+
+- name: Add Docker GPG apt Key
+  apt_key:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    state: present
+
+- name: Add Docker Repository
+  apt_repository:
+    repo: deb https://download.docker.com/linux/ubuntu bionic stable
+    state: present
+
+- name: Update apt and install docker-ce
+  apt: update_cache=yes name=docker-ce state=latest
+
+- name: Install Docker Module for Python
+  pip:
+    name: docker
+
+- name: Add Docker Group
+  group: name=docker state=present
+
+- name: Create a Jenkins user and add it to the docker group
+  command: sudo usermod -aG docker $USER
+
+- name: Change the access permission
+  command: sudo chmod 777 /var/run/docker.sock
+
+
+- name: Kubectl Installation
+  shell: |
+    curl -LO https://storage.googleapis.com/kubernetes-release/release/`curl -s https://storage.googleapis.com/kubernetes-release/release/stable.txt`/bin/linux/amd64/kubectl
+    sudo chmod +x ./kubectl
+    sudo mv ./kubectl /usr/local/bin/kubectl
+    kubectl version --client
+
+- name: Helm Installation
+  shell: |
+    sudo  wget https://get.helm.sh/helm-v3.4.0-linux-amd64.tar.gz
+    sudo tar -zxvf helm-v3.4.0-linux-amd64.tar.gz
+    sudo mv linux-amd64/helm /usr/local/bin/helm
+
+
+- name: Printing jenkins initialAdminPassword
+  shell: sudo cat /var/lib/jenkins/secrets/initialAdminPassword
+- debug:
+    msg: jenkins_initialAdminPassword

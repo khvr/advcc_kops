@@ -1,0 +1,20 @@
+You can connect to Kafka by running a simple command like this :
+
+helm install v1-prereq ./pre-req-helm 
+
+
+  Once you have the kafka pod running, you can list all kafka
+  topics with:
+
+  kubectl -n {{ .Release.Namespace }} exec testclient -- /usr/bin/kafka-topics --zookeeper {{ .Release.Name }}-zookeeper:2181 --list
+
+  To create a new topic:
+  kubectl -n {{ .Release.Namespace }} exec testclient -- /usr/bin/kafka-topics --zookeeper {{ .Release.Name }}-zookeeper:2181 --topic test1 --create --partitions 1 --replication-factor 1
+
+  To listen for messages on a topic:
+  kubectl -n {{ .Release.Namespace }} exec -ti testclient -- /usr/bin/kafka-console-consumer --bootstrap-server {{ .Release.Name }}-kafka:9092 --topic test1 --from-beginning
+
+
+  To create a message in the above session, simply type the message and press "enter"
+
+

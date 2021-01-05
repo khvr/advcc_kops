@@ -1,0 +1,135 @@
+---
+- name: create VPC for jenkins
+  ec2_vpc_net:
+    state: present
+    region: "{{ aws_region }}"
+    name: "{{ vpc_name }}"
+    cidr_block: "{{ vpc_cidr_block }}"
+    dns_hostnames: yes
+    dns_support: yes
+    multi_ok: no
+    tenancy: default
+    profile: "{{ aws_profile }}"
+    tags:
+      Name: "jenkins"
+  register: jenkins_vpc
+
+- name: Create subnets
+  ec2_vpc_subnet:
+    state: present
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    az: "{{ item.value.az }}"
+    vpc_id: "{{ jenkins_vpc.vpc.id }}"
+    cidr: "{{ item.value.cidr }}"
+    tags:
+      Name: "jenkins_{{ item.value.az }}"
+  with_dict: "{{ vpc_subnets }}"
+  register: jenkins_vpc_subnets
+
+- name: Create Internet Gateway
+  ec2_vpc_igw:
+    state: present
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    vpc_id: "{{ jenkins_vpc.vpc.id }}"
+    tags:
+      Name: "{{ igw_name }}"
+  register: igw
+
+- name: Grab the route tables
+  ec2_vpc_route_table_info:
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    filters:
+      vpc-id: "{{ jenkins_vpc.vpc.id }}"
+  register: jenkins_route_table
+
+- name: Update the route table in the vpc
+  ec2_vpc_route_table:
+    state: present
+    lookup: id
+    route_table_id: "{{ jenkins_route_table.route_tables[0].id }}"
+    vpc_id: "{{ jenkins_vpc.vpc.id}}"
+    profile: "{{ aws_profile }}"
+    region: "{{ aws_region }}"
+    tags:
+      Name: "jenkins_route_table_{{ jenkins_vpc.vpc.id }}"
+    subnets:
+        - "{{ jenkins_vpc_subnets.results[0].subnet.id }}"
+        - "{{ jenkins_vpc_subnets.results[1].subnet.id }}"
+        - "{{ jenkins_vpc_subnets.results[2].subnet.id }}"
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{ igw.gateway_id }}"
+  register: jenkins_route_table_updated
+
+- name: "Create vpc security groups"
+  ec2_group:
+    state: present
+    profile: "{{ aws_profile}}"
+    region: "{{ aws_region }}"
+    vpc_id: "{{ jenkins_vpc.vpc.id }}"
+    name: "jenkins_sg_{{ jenkins_vpc.vpc.id }}"
+    description: "jenkins security group for {{ jenkins_vpc.vpc.id }}"
+    tags:
+      Name: "Jenkins_SG"
+    rules:
+      - proto: tcp
+        ports: 
+          - 22
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        ports:
+          - 80
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        ports:
+          - 443
+        cidr_ip: 0.0.0.0/0
+      - proto: tcp
+        ports:
+          - 8080
+        cidr_ip: 0.0.0.0/0
+  register: jenkins_sg
+
+######################### Instance Setup #############################
+- name: Create a Ec2 server
+  ec2_instance:
+    key_name: "{{key_pair}}"
+    instance_type : "{{ ec2_instance_size }}"
+    image_id: ami-04b9e92b5572fa0d1
+    security_group: "{{ jenkins_sg.group_id }}"
+    vpc_subnet_id: "{{ jenkins_vpc_subnets.results[0].subnet.id }}"
+    tenancy: default
+    network:
+      assign_public_ip: false
+    state: running
+    tags:
+      Name: jenkins
+      app: jenkins
+    wait: yes
+  register : Myec2
+
+- name: Associate elastic ip
+  ec2_eip:
+    device_id: "{{ Myec2.instance_ids[0] }}"
+    ip: "{{ elastic_ip }}"
+
+- name: Add A record for the new EC2 instance IP in Route53.
+  route53:
+    command: create
+    zone: "{{route53_zone_name}}"
+    record: "{{route53_record_name}}"
+    type: A
+    ttl: 60
+    value: "{{ elastic_ip }}"
+    wait: true
+    overwrite: true
+
+- name: Add new instance to host group
+  add_host:
+    groupname: launched
+    hostname: "{{ elastic_ip }}"
+    ansible_ssh_user: ubuntu
+#     host_key_checking: false

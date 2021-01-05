@@ -1,0 +1,10 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ template "zookeeperConfigMapName" . }}
+  namespace: {{ .Values.namespace.kafka.name }}
+data:
+  ZOOKEEPER_SERVER_1: {{ .Values.ZOOKEEPER_SERVER_1 }}
+  ZOOKEEPER_SERVER_2: {{ .Values.ZOOKEEPER_SERVER_2 }}
+  ZOOKEEPER_SERVER_3: {{ .Values.ZOOKEEPER_SERVER_3 }}

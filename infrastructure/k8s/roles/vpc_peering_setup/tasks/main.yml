@@ -1,0 +1,81 @@
+---
+# Fetching k8s Information
+- name: fetching k8s Cluster aws vpc info
+  ec2_vpc_net_info:
+    filters:
+      tag:Name: "{{k8s_requestor_vpc_name}}"
+  register: k8s_requestor_vpc_info
+- debug:
+    var: k8s_requestor_vpc_info.vpcs[0].id
+  when: k8s_requestor_vpc_info.vpcs|length > 0
+
+- name: fetching aws route table info of the kubernetes cluster
+  ec2_vpc_route_table_info:
+    filters:
+      vpc-id: "{{k8s_requestor_vpc_info.vpcs[0].id}}"
+      tag:Name: "{{k8s_requestor_vpc_name}}"
+  when: k8s_requestor_vpc_info.vpcs|length > 0
+  register: k8s_requestor_route_table_info
+- debug:
+    var: k8s_requestor_route_table_info.route_tables[0].id
+  when: k8s_requestor_vpc_info.vpcs|length > 0
+
+- name: fetching aws igw info for the kubernetes cluster
+  ec2_vpc_igw_info:
+    filters:
+      attachment.vpc-id: "{{k8s_requestor_vpc_info.vpcs[0].id}}"
+  register: k8s_requestor_igw_info
+- debug:
+    var: k8s_requestor_igw_info.internet_gateways[0].internet_gateway_id
+  when: k8s_requestor_vpc_info.vpcs|length > 0
+
+# Establish Peering Connection
+
+- name: create vpc peering
+  ec2_vpc_peer:
+    vpc_id: "{{k8s_requestor_vpc_info.vpcs[0].id}}"
+    peer_vpc_id: "{{rds_vpc_result.vpc.id}}"
+    state: present
+    tags:
+      Name: k8s_rds_vpc_peering
+  register: vpc_peer
+- debug:
+    var: "{{vpc_peer}}"
+
+- name: accept vpc peering
+  ec2_vpc_peer:
+    peering_id: "{{ vpc_peer.peering_id }}"
+    state: accept
+  register: vpc_peering_accept
+- debug:
+    var: "{{vpc_peering_accept}}"
+
+- name: updating vpc peering route to rds_routeTable (k8s-CIDR-->vpc_peer_id)
+  ec2_vpc_route_table:
+    vpc_id: "{{rds_vpc_result.vpc.id}}"
+    route_table_id: "{{ rds_route_table_result.route_table.id }}"
+    lookup: id
+    state: present
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{rds_vpc_igw_result.gateway_id}}"
+      - dest: "{{k8s_requestor_vpc_info.vpcs[0].cidr_block}}"
+        vpc_peering_connection_id: "{{ vpc_peer.peering_id }}"
+  register: acceptor_route_table_info
+- debug:
+    var: "{{acceptor_route_table_info}}"
+
+- name: updating vpc peering route to k8s_Cluster_routeTable (rds-CIDR-->vpc_peer_id)
+  ec2_vpc_route_table:
+    vpc_id: "{{k8s_requestor_vpc_info.vpcs[0].id}}"
+    route_table_id: "{{k8s_requestor_route_table_info.route_tables[0].id}}"
+    lookup: id
+    state: present
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{k8s_requestor_igw_info.internet_gateways[0].internet_gateway_id}}"
+      - dest: "{{rds_vpc_result.vpc.cidr_block}}"
+        vpc_peering_connection_id: "{{ vpc_peer.peering_id }}"
+  register: requestor_route_table_info
+- debug:
+    var: "{{requestor_route_table_info}}"

@@ -1,0 +1,10 @@
+---
+- name: "Setup AWS Networking"
+  hosts: localhost
+  roles:
+  - networking-instance-setup
+-
+  hosts: launched
+  become: true
+  roles:
+    - jenkins

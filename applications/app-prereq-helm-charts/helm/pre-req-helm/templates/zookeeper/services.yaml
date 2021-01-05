@@ -1,0 +1,74 @@
+---
+{{ if .Values.zookeeperImage }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.ZOOKEEPER_SERVER_1 }}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    name: {{ .Values.ZOOKEEPER_SERVER_1 }}-{{ template "labelName" .}}
+spec:
+  type: {{ .Values.zkService.type }}
+  selector:
+    app: {{ .Values.ZOOKEEPER_SERVER_1 }}-{{ template "labelName" .}}
+  ports:
+  - name: port-2181
+    port: 2181
+    protocol: TCP 
+  - name: port-2888
+    port: 2888
+    protocol: TCP 
+  - name: port-3888
+    port: 3888
+    protocol: TCP 
+{{ end }}
+
+---
+{{ if .Values.zookeeperImage }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.ZOOKEEPER_SERVER_2 }}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    name: {{ .Values.ZOOKEEPER_SERVER_2 }}-{{ template "labelName" .}}
+spec:
+  type: {{ .Values.zkService.type }}
+  selector:
+    app: {{ .Values.ZOOKEEPER_SERVER_2 }}-{{ template "labelName" .}}
+  ports:
+  - name: port-2181
+    port: 2181
+    protocol: TCP 
+  - name: port-2888
+    port: 2888
+    protocol: TCP 
+  - name: port-3888
+    port: 3888
+    protocol: TCP 
+{{ end }}
+
+---
+{{ if .Values.zookeeperImage }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.ZOOKEEPER_SERVER_3 }}
+  namespace: {{ .Values.namespace.kafka.name }}
+  labels:
+    name: {{ .Values.ZOOKEEPER_SERVER_3 }}-{{ template "labelName" .}}
+spec:
+  type: {{ .Values.zkService.type }}
+  selector:
+    app: {{ .Values.ZOOKEEPER_SERVER_3 }}-{{ template "labelName" .}}
+  ports:
+  - name: port-2181
+    port: 2181
+    protocol: TCP 
+  - name: port-2888
+    port: 2888
+    protocol: TCP 
+  - name: port-3888
+    port: 3888
+    protocol: TCP 
+{{ end }}

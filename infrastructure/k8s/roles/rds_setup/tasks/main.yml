@@ -1,0 +1,135 @@
+---
+- name: fetching Kubernetes Cluster vpc info
+  ec2_vpc_net_info:
+    filters:
+      tag:Name: "{{ clustername }}"
+  register: k8s_requestor_vpc_info
+- debug:
+    var: k8s_requestor_vpc_info.vpcs[0].id
+  when: k8s_requestor_vpc_info.vpcs|length > 0
+
+- name: creating aws vpc
+  ec2_vpc_net:
+    name: "{{vpc_tags.name}}"
+    cidr_block: "{{vpc_cidr_block}}"
+    tenancy: default
+    dns_hostnames: yes
+    dns_support: yes
+    multi_ok: no
+    state: present
+    tags:
+      Name: "{{vpc_tags.name}}"
+  register: rds_vpc_result
+- debug:
+    var: rds_vpc_result.vpc.id
+
+- name: creating aws vpc igw
+  ec2_vpc_igw:
+    vpc_id: "{{rds_vpc_result.vpc.id}}"
+    state: present
+    tags:
+      Name: "{{vpc_tags.name}}-igw"
+  register: rds_vpc_igw_result
+- debug:
+    var: rds_vpc_igw_result.gateway_id
+
+- name: Create subnets
+  ec2_vpc_subnet:
+    state: present
+    az: "{{ item.value.az }}"
+    vpc_id: "{{ rds_vpc_result.vpc.id }}"
+    map_public: yes
+    wait: yes
+    cidr: "{{ item.value.cidr }}"
+    tags:
+      Name: "{{vpc_tags.name}}-{{item.value.name}}"
+  with_dict: "{{ vpc_subnets }}"
+  register: vpc_subnets
+
+- debug:
+    msg: "{{item.subnet.id}}"
+  with_items: "{{vpc_subnets.results}}"
+
+- name: creating aws vpc route table
+  ec2_vpc_route_table:
+    vpc_id: "{{rds_vpc_result.vpc.id}}"
+    state: present
+    routes:
+      - dest: 0.0.0.0/0
+        gateway_id: "{{rds_vpc_igw_result.gateway_id}}"
+    subnets:
+      - "{{vpc_subnets.results[0].subnet.id}}"
+      - "{{vpc_subnets.results[1].subnet.id}}"
+      - "{{vpc_subnets.results[2].subnet.id}}"
+    tags:
+      Name: "{{vpc_tags.name}}-public-route-table"
+  register: rds_route_table_result
+- debug:
+    msg: "{{item.route_table_association_id}}"
+  with_items: "{{rds_route_table_result.route_table.associations}}"
+
+- name: creating aws vpc subnet group for rds server
+  rds_subnet_group:
+    name: "{{vpc_subnet_group_names.rds}}"
+    description: 'subnet group for rds instance'
+    state: present
+    subnets:
+      - "{{vpc_subnets.results[0].subnet.id}}"
+      - "{{vpc_subnets.results[1].subnet.id}}"
+      - "{{vpc_subnets.results[2].subnet.id}}"
+  register: rds_subnet_group_result
+- debug:
+    msg: rds_subnet_group_result.subnet_group.name
+
+- name: creating aws vpc security group for rds instance
+  ec2_group:
+    name: "{{vpc_tags.name}}-sg"
+    description: security group for rds instance to accept connection if source is k8s vpc
+    vpc_id: "{{rds_vpc_result.vpc.id}}"
+    state: present
+    rules:
+      - proto: tcp
+        from_port: 3306
+        to_port: 3306
+        cidr_ip: "{{k8s_requestor_vpc_info.vpcs[0].cidr_block}}"
+        # cidr_ip: "0.0.0.0/0"
+    tags:
+      Name: "{{vpc_tags.name}}-sg"
+  register: sg_result
+- debug:
+    var: sg_result.group_id
+
+- name: creating private access rds instance
+  rds:
+    backup_retention: 0
+    command: create
+    db_engine: MySQL
+    db_name: "{{ item.value.dbName }}"
+    instance_name: "{{item.value.name }}"
+    instance_type: db.t2.micro
+    size: 20
+    username: "{{db_username}}"
+    password: "{{db_password}}"
+    publicly_accessible: no
+    vpc_security_groups: "{{sg_result.group_id}}"
+    tags:
+      Application: kafkaApp-backend-db
+    subnet: "{{rds_subnet_group_result.subnet_group.name}}"
+    wait: yes
+  with_dict: "{{ rds_instances }}"
+  register: rds_instance_result
+  async: 300
+  poll: 0
+- debug:
+    var: rds_instance_results
+
+- name: Check sync status
+  async_status:
+    jid:  "{{ item.ansible_job_id }}"
+  # loop: ""
+  # loop_control:
+  #   loop_var: "async_result_item"
+  register: async_poll_results
+  until: async_poll_results.finished
+  retries: 300
+  with_items: "{{ rds_instance_result.results }}"

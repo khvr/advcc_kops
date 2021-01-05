@@ -1,0 +1,221 @@
+# Default values for pre-req-helm.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: nginx
+  pullPolicy: IfNotPresent
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: false
+  annotations: {}
+    # kubernetes.io/ingress.class: nginx
+    # kubernetes.io/tls-acme: "true"
+  hosts:
+    - host: chart-example.local
+      paths: []
+  tls: []
+  #  - secretName: chart-example-tls
+  #    hosts:
+  #      - chart-example.local
+
+resources: {}
+  # We usually recommend not to specify default resources and to leave this as a conscious
+  # choice for the user. This also increases chances charts run on environments with little
+  # resources, such as Minikube. If you do want to specify resources, uncomment the following
+  # lines, adjust them as necessary, and remove the curly braces after 'resources:'.
+  # limits:
+  #   cpu: 100m
+  #   memory: 128Mi
+  # requests:
+  #   cpu: 100m
+  #   memory: 128Mi
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 100
+  targetCPUUtilizationPercentage: 80
+  # targetMemoryUtilizationPercentage: 80
+
+namespace:
+  kafka:
+    name: kafka-prereq
+  logging:
+    name: logging
+
+imageCredentials:
+  registry: https://index.docker.io/v1/
+  Docker_username: ""
+  Docker_password: ""
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+ZOOKEEPER1_ID: 1
+ZOOKEEPER2_ID: 2
+ZOOKEEPER3_ID: 3
+
+ZOOKEEPER_SERVER_1: "zoo1"
+ZOOKEEPER_SERVER_2: "zoo2"
+ZOOKEEPER_SERVER_3: "zoo3"
+
+zookeeperImage: digitalwonderland/zookeeper
+
+zkService:
+  type: ClusterIP
+
+zkDeployment:
+  replicationSet:
+    replicas: 1
+    progressDeadlineSeconds: 120
+    minReadySeconds: 30
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  pod:
+    readinessProbe:
+      initialDelaySeconds: 15
+      periodSeconds: 60
+    livenessProbe:
+      initialDelaySeconds: 15
+      periodSeconds: 60
+
+
+KAFKA_ADVERTISED_PORT: 9092
+KAFKA_ZOOKEEPER_CONNECT: "zoo1:2181,zoo2:2181,zoo3:2181"
+KAFKA_SERVER_1: "kafka1"
+KAFKA_SERVER_2: "kafka2"
+KAFKA_SERVER_3: "kafka3"
+
+KAFKA1_ID: 0
+KAFKA2_ID: 1
+KAFKA3_ID: 2
+
+kafkaImage: khvr/kafka:latest
+
+kafkaDeployment:
+  replicationSet:
+    replicas: 1
+    progressDeadlineSeconds: 120
+    minReadySeconds: 30
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+
+Topic_partition_replicationFactor1: "watch:2:3"
+Topic_partition_replicationFactor2: "weather:2:3"
+
+elasticsearch:
+  name: elasticsearch
+
+esReplicaset:
+  name: es-cluster
+  spec:
+    replicas: 3
+  pod:
+    spec:
+      image: docker.elastic.co/elasticsearch/elasticsearch:7.2.0
+      volumeMounts:
+        name: data
+        mountPath: /usr/share/elasticsearch/data
+      env:
+        cluster_name: k8s-logs
+        discovery_seed_hosts: "es-cluster-0.elasticsearch,es-cluster-1.elasticsearch,es-cluster-2.elasticsearch"
+        cluster_initial_master_nodes: "es-cluster-0,es-cluster-1,es-cluster-2"
+        ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    initContainers:
+      securityContext:
+        previleged: true
+      volumeMounts:
+        name: data
+        mountPath: /usr/share/elasticsearch/data
+  volumeClaimTemplates:
+    name: data
+    spec:
+      storageClassName: gp2
+      resources:
+        storage: 100Gi
+
+
+fluentd:
+  name: fluentd
+  DaemonSet:
+    replicationSet:
+      spec:
+        tolerations:
+          key: node-role.kubernetes.io/master
+          effect: NoSchedule
+        containers:
+          image: fluent/fluentd-kubernetes-daemonset:v1.4.2-debian-elasticsearch-1.1
+          env:
+            FLUENT_ELASTICSEARCH_HOST: "elasticsearch.logging.svc.cluster.local"
+            FLUENT_ELASTICSEARCH_PORT: "9200"
+            FLUENT_ELASTICSEARCH_SCHEME: "http"
+            FLUENTD_SYSTEMD_CONF: disable
+          volumeMounts:
+            name1: varlog
+            mountPath1: /var/log
+            name2: varlibdockercontainers
+            mountPath2: /var/lib/docker/containers
+            readOnly: true
+        terminationGracePeriodSeconds: 30
+        volumes:
+          name1: varlog
+          hostPath1:
+            path: /var/log
+          name2: varlibdockercontainers
+          hostPath2:
+            path: /var/lib/docker/containers
+
+kibana:
+  name: kibana
+  replicationSet:
+    spec:
+      replicas: 1
+    pod:
+      spec:
+        containers:
+          image: docker.elastic.co/kibana/kibana:7.2.0
+          env:
+            ELASTICSEARCH_URL: http://elasticsearch:9200
+  service:
+    spec:
+      type: ClusterIP

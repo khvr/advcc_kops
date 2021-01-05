@@ -1,0 +1,7 @@
+spec:
+    cloudLabels:
+        service: k8s_node
+        k8s.io/cluster-autoscaler/enabled: ""
+        k8s.io/cluster-autoscaler/<YOUR CLUSTER NAME>: ""
+    maxSize: 6
+    minSize: 3
